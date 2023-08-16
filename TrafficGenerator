@@ -1,0 +1,57 @@
+package com.shutterfly.services.togglz.controller;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.Socket;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+public class TrafficGenerator {
+    public static void main(String[] args) {
+        final String ipAddress = "10.151.9.219"; // Replace with your desired IP address
+        final int portNumber = 9001; // Replace with your desired port number
+        final int numThreads = 5; // number of concurrent threads
+        final int numRequestsPerThread = 1; // number of requests per thread
+        ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
+        CountDownLatch latch = new CountDownLatch(numThreads * numRequestsPerThread);
+        System.out.println("Starting load testing...");
+        for (int i = 0; i < numThreads; i++) {
+            executorService.submit(() -> {
+                for (int j = 0; j < numRequestsPerThread; j++) {
+                    int packetSize = (int) (Math.random() * 1024) + 1024;
+                    System.out.println("Thread " + Thread.currentThread().getId() +
+                            " - Sending request with packet size: " + packetSize + " bytes");
+                    long duration = makeRequest(ipAddress, portNumber, packetSize);
+                    System.out.println("Thread " + Thread.currentThread().getId() +
+                            " - Packet size: " + packetSize + " bytes, Time taken: " + duration + " ms");
+                    latch.countDown();
+                }
+            });
+        }
+        try {
+            latch.await(); // Wait until all requests are completed
+            executorService.shutdown(); // Shut down the executor service
+            System.out.println("Load testing completed.");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+    private static long makeRequest(String ipAddress, int portNumber, int packetSize) {
+        long startTime = System.currentTimeMillis();
+        try (Socket socket = new Socket(ipAddress, portNumber)) {
+            System.out.println("Thread " + Thread.currentThread().getId() +
+                    " - Connecting to " + ipAddress + ":" + portNumber);
+            OutputStream os = socket.getOutputStream();
+            byte[] data = new byte[packetSize];
+            os.write(data);
+            os.flush();
+            os.close();
+            System.out.println("Thread " + Thread.currentThread().getId() +
+                    " - Request sent successfully");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        long endTime = System.currentTimeMillis();
+        return endTime - startTime;
+    }
+}
